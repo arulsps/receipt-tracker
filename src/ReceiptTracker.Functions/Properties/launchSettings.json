@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "ReceiptTracker.Functions": {
+      "commandName": "Project",
+      "commandLineArgs": "--port 7249",
+      "launchBrowser": false
+    }
+  }
+}

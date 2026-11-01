@@ -1,0 +1,14 @@
+# Secrets & Config
+local.settings.json
+publish.zip
+
+# Build Output
+bin/
+obj/
+publish_output/
+*.user
+*.suo
+
+# OS Files
+.DS_Store
+Thumbs.db
