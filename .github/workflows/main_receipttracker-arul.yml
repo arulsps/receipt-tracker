@@ -10,30 +10,30 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_FUNCTIONAPP_PACKAGE_PATH: '.' # set this to the path to your web app project, defaults to the repository root
-  DOTNET_VERSION: '10.0' # set this to the dotnet version to use
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: 'src/ReceiptTracker.Functions' # Path to project containing .csproj
+  DOTNET_VERSION: '7.0.x'
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
+      id-token: write # Required for requesting the JWT via federated credentials
+      contents: read  # Required for actions/checkout
 
     steps:
       - name: 'Checkout GitHub Action'
         uses: actions/checkout@v4
 
       - name: Setup DotNet ${{ env.DOTNET_VERSION }} Environment
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: 'Resolve Project Dependencies Using Dotnet'
+      - name: 'Publish Project Dependencies Using Dotnet'
         shell: bash
         run: |
           pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
-          dotnet build --configuration Release --output ./output
+          dotnet publish --configuration Release --output ./output
           popd
       
       - name: Login to Azure
@@ -50,4 +50,3 @@ jobs:
           app-name: 'receipttracker-arul'
           slot-name: 'Production'
           package: '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/output'
-          
