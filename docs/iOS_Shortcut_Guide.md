@@ -25,19 +25,23 @@ This guide walks you through creating the iPhone **"Scan Receipt"** Shortcut. Wi
 
 ---
 
-### Action 2: Resize Image
-1. Search for **Resize Image**.
-2. Select **Resize Image** (it will automatically link to `Photo`).
-3. Tap the width field and set **Width** to: `1920`.
-   *(Height will calculate automatically to maintain the aspect ratio while keeping payload size small).*
+### Action 2 (Recommended): Base64 Encode Directly from Photo
+> [!TIP]
+> You do **not** need the "Resize Image" action. Passing `Photo` directly to `Base64 Encode` avoids accidentally selecting image metadata (like `Width` or `Height`) instead of the actual picture.
+
+1. Search for **Base64 Encode**.
+2. Select **Base64 Encode**.
+3. Ensure the input variable is set to **Photo** (the output from Action 1).
+4. Tap the options arrow:
+   - **Line Breaks**: `None`
 
 ---
 
-### Action 3: Base64 Encode
-1. Search for **Base64 Encode**.
-2. Select **Base64 Encode** (it links to `Resized Image`).
-3. Tap the options arrow:
-   - **Line Breaks**: `None`
+### (Alternative) If Using "Resize Image":
+> [!CAUTION]
+> If you keep the "Resize Image" action, verify that the first variable pill says **Photo** (with an image icon), **NOT `Width` or `Height`**. If `Width` is selected, iOS passes the number `3024` instead of the image!
+1. **Resize Image**: Input must be `Photo`, Width set to `1920`.
+2. **Base64 Encode**: Input must be `Resized Image`, Line Breaks `None`.
 
 ---
 
