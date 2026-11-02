@@ -63,12 +63,17 @@ jobs:
           slot-name: 'Production'
           package: '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/output'
 
-      - name: 'Restart Function App and List Functions'
+      - name: 'Query Function App Config, Triggers and Keys'
         shell: bash
         run: |
-          echo "=== Restarting Function App to reset host crash backoff ==="
-          az functionapp restart --name receipttracker-arul --resource-group receipttracker-arul_group
-          echo "Waiting 20 seconds for host restart..."
-          sleep 20
-          echo "=== Listing Functions ==="
+          echo "=== Function App Config ==="
+          az functionapp show --name receipttracker-arul --resource-group receipttracker-arul_group --query "properties.functionAppConfig" -o json || true
+          
+          echo "=== ARM Functions List (API 2023-12-01) ==="
+          az rest --method get --uri "https://management.azure.com/subscriptions/909d161f-d059-4d43-ab1d-c7291a11c417/resourceGroups/receipttracker-arul_group/providers/Microsoft.Web/sites/receipttracker-arul/functions?api-version=2023-12-01" -o json || true
+
+          echo "=== CLI Function List ==="
           az functionapp function list --name receipttracker-arul --resource-group receipttracker-arul_group -o table || true
+
+          echo "=== Function Keys for UploadReceipt ==="
+          az functionapp function keys list --name receipttracker-arul --resource-group receipttracker-arul_group --function-name UploadReceipt -o json || true
