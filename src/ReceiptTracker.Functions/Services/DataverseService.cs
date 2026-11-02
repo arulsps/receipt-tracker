@@ -23,15 +23,19 @@ public class DataverseService : IDataverseService
 
         var rawEnvUrl = configuration["Dataverse:EnvironmentUrl"] 
             ?? configuration["Dataverse__EnvironmentUrl"] 
+            ?? configuration["DataverseEnvironmentUrl"]
             ?? string.Empty;
         _environmentUrl = rawEnvUrl.TrimEnd('/');
 
         var tenantId = configuration["Dataverse:TenantId"] 
-            ?? configuration["Dataverse__TenantId"];
+            ?? configuration["Dataverse__TenantId"]
+            ?? configuration["DataverseTenantId"];
         var clientId = configuration["Dataverse:ClientId"] 
-            ?? configuration["Dataverse__ClientId"];
+            ?? configuration["Dataverse__ClientId"]
+            ?? configuration["DataverseClientId"];
         var clientSecret = configuration["Dataverse:ClientSecret"] 
-            ?? configuration["Dataverse__ClientSecret"];
+            ?? configuration["Dataverse__ClientSecret"]
+            ?? configuration["DataverseClientSecret"];
 
         if (string.IsNullOrEmpty(_environmentUrl) || string.IsNullOrEmpty(tenantId) ||
             string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(clientSecret))
