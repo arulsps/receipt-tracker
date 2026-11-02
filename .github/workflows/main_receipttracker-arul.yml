@@ -55,6 +55,13 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_9EF5562FF521451785EC8A168A2CFD09 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_96533A52C58C470E9BEA00C04C3027BB }}
 
+      - name: 'Align Flex Consumption Runtime Version to 8.0'
+        shell: bash
+        run: |
+          echo "=== Setting Flex Consumption runtime to dotnet-isolated 8.0 ==="
+          az functionapp runtime config set --name receipttracker-arul --resource-group receipttracker-arul_group --runtime-version 8.0 || \
+          az rest --method patch --uri "https://management.azure.com/subscriptions/909d161f-d059-4d43-ab1d-c7291a11c417/resourceGroups/receipttracker-arul_group/providers/Microsoft.Web/sites/receipttracker-arul?api-version=2023-12-01" --body '{"properties":{"functionAppConfig":{"runtime":{"name":"dotnet-isolated","version":"8.0"}}}}'
+
       - name: 'Run Azure Functions Action'
         uses: Azure/functions-action@v1
         id: fa
@@ -63,9 +70,14 @@ jobs:
           slot-name: 'Production'
           package: '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/output'
 
-      - name: 'Query Function App Config, Triggers and Keys'
+      - name: 'Restart Function App and Query Functions'
         shell: bash
         run: |
+          echo "=== Restarting Function App ==="
+          az functionapp restart --name receipttracker-arul --resource-group receipttracker-arul_group
+          echo "Waiting 25 seconds for host startup..."
+          sleep 25
+
           echo "=== Function App Config ==="
           az functionapp show --name receipttracker-arul --resource-group receipttracker-arul_group --query "properties.functionAppConfig" -o json || true
           
@@ -75,5 +87,5 @@ jobs:
           echo "=== CLI Function List ==="
           az functionapp function list --name receipttracker-arul --resource-group receipttracker-arul_group -o table || true
 
-          echo "=== Function Keys for UploadReceipt ==="
-          az functionapp function keys list --name receipttracker-arul --resource-group receipttracker-arul_group --function-name UploadReceipt -o json || true
+          echo "=== Function Keys for UploadReceipt via ARM ==="
+          az rest --method post --uri "https://management.azure.com/subscriptions/909d161f-d059-4d43-ab1d-c7291a11c417/resourceGroups/receipttracker-arul_group/providers/Microsoft.Web/sites/receipttracker-arul/functions/UploadReceipt/listkeys?api-version=2023-12-01" -o json || true
