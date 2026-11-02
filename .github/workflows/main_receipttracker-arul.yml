@@ -34,6 +34,18 @@ jobs:
         run: |
           pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
           dotnet publish --configuration Release --output ./output
+          echo "=== Output directory contents ==="
+          ls -la ./output
+          if [ -f "./output/functions.metadata" ]; then
+            echo "=== functions.metadata ==="
+            cat ./output/functions.metadata
+          else
+            echo "WARNING: functions.metadata does not exist in output!"
+          fi
+          if [ -f "./output/worker.config.json" ]; then
+            echo "=== worker.config.json ==="
+            cat ./output/worker.config.json
+          fi
           popd
       
       - name: Login to Azure
@@ -50,3 +62,13 @@ jobs:
           app-name: 'receipttracker-arul'
           slot-name: 'Production'
           package: '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/output'
+
+      - name: 'Restart Function App and List Functions'
+        shell: bash
+        run: |
+          echo "=== Restarting Function App to reset host crash backoff ==="
+          az functionapp restart --name receipttracker-arul --resource-group receipttracker-arul_group
+          echo "Waiting 20 seconds for host restart..."
+          sleep 20
+          echo "=== Listing Functions ==="
+          az functionapp function list --name receipttracker-arul --resource-group receipttracker-arul_group -o table || true
