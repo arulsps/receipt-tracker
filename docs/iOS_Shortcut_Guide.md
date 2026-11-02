@@ -25,23 +25,29 @@ This guide walks you through creating the iPhone **"Scan Receipt"** Shortcut. Wi
 
 ---
 
-### Action 2 (Recommended): Base64 Encode Directly from Photo
-> [!TIP]
-> You do **not** need the "Resize Image" action. Passing `Photo` directly to `Base64 Encode` avoids accidentally selecting image metadata (like `Width` or `Height`) instead of the actual picture.
+### Action 2: Resize Image
+> [!IMPORTANT]
+> Azure AI Document Intelligence Free Tier limits input images to **4 MB**. An uncompressed iPhone camera photo is 8–15 MB, so resizing or compressing is required.
+>
+> **Crucial Setting**: Make sure the variable pill says **`Photo`** (with a photo icon), **NOT `Width`**.
+> If you tap the pill and select `Width`, iOS sends the number `3024` instead of the picture!
 
-1. Search for **Base64 Encode**.
-2. Select **Base64 Encode**.
-3. Ensure the input variable is set to **Photo** (the output from Action 1).
-4. Tap the options arrow:
-   - **Line Breaks**: `None`
+1. Search for **Resize Image**.
+2. Select **Resize Image**.
+3. It will read: `Resize [Photo] to [Width] [Size]`.
+   - Ensure the first variable is **`Photo`** (the image output of Action 1).
+   - Set **Width** to: `1600`.
+   - Leave height as **Auto Height**.
+
+*(Alternative: You can use **Convert Image** instead: `Convert [Photo] to [JPEG]` with Quality `Medium` or `70%`).*
 
 ---
 
-### (Alternative) If Using "Resize Image":
-> [!CAUTION]
-> If you keep the "Resize Image" action, verify that the first variable pill says **Photo** (with an image icon), **NOT `Width` or `Height`**. If `Width` is selected, iOS passes the number `3024` instead of the image!
-1. **Resize Image**: Input must be `Photo`, Width set to `1920`.
-2. **Base64 Encode**: Input must be `Resized Image`, Line Breaks `None`.
+### Action 3: Base64 Encode
+1. Search for **Base64 Encode**.
+2. Select **Base64 Encode** (it links to **`Resized Image`**).
+3. Tap the chevron/disclosure arrow on the action:
+   - **Line Breaks**: `None`
 
 ---
 

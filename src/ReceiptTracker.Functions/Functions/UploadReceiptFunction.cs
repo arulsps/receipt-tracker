@@ -76,6 +76,12 @@ public class UploadReceiptFunction
                 return await CreateErrorResponseAsync(req, HttpStatusCode.BadRequest, $"Uploaded image is too small ({imageBytes.Length} bytes). Please verify the iOS shortcut image variable.");
             }
 
+            if (imageBytes.Length > 4 * 1024 * 1024)
+            {
+                return await CreateErrorResponseAsync(req, HttpStatusCode.BadRequest,
+                    $"Uploaded image is too large ({imageBytes.Length / (1024.0 * 1024.0):F1} MB). Azure AI Document Intelligence Free Tier limits images to 4 MB. In your iOS Shortcut, please insert 'Resize Image' (Width: 1600) or 'Convert Image' (Quality: Medium) before Base64 encoding.");
+            }
+
             using var imageStream = new MemoryStream(imageBytes);
 
             // 1. Analyze receipt via Azure AI Document Intelligence
