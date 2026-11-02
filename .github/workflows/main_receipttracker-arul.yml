@@ -59,8 +59,32 @@ jobs:
         shell: bash
         run: |
           echo "=== Setting Flex Consumption runtime to dotnet-isolated 8.0 ==="
-          az functionapp runtime config set --name receipttracker-arul --resource-group receipttracker-arul_group --runtime-version 8.0 || \
-          az rest --method patch --uri "https://management.azure.com/subscriptions/909d161f-d059-4d43-ab1d-c7291a11c417/resourceGroups/receipttracker-arul_group/providers/Microsoft.Web/sites/receipttracker-arul?api-version=2023-12-01" --body '{"properties":{"functionAppConfig":{"runtime":{"name":"dotnet-isolated","version":"8.0"}}}}'
+          az rest --method patch --uri "https://management.azure.com/subscriptions/909d161f-d059-4d43-ab1d-c7291a11c417/resourceGroups/receipttracker-arul_group/providers/Microsoft.Web/sites/receipttracker-arul?api-version=2023-12-01" \
+            --headers "Content-Type=application/json" \
+            --body '{
+              "properties": {
+                "functionAppConfig": {
+                  "deployment": {
+                    "storage": {
+                      "type": "blobContainer",
+                      "value": "https://receipttrackerarulgaad0.blob.core.windows.net/app-package-receipttracker-arul-53147d7",
+                      "authentication": {
+                        "type": "StorageAccountConnectionString",
+                        "storageAccountConnectionStringName": "DEPLOYMENT_STORAGE_CONNECTION_STRING"
+                      }
+                    }
+                  },
+                  "runtime": {
+                    "name": "dotnet-isolated",
+                    "version": "8.0"
+                  },
+                  "scaleAndConcurrency": {
+                    "instanceMemoryMB": 512,
+                    "maximumInstanceCount": 100
+                  }
+                }
+              }
+            }'
 
       - name: 'Run Azure Functions Action'
         uses: Azure/functions-action@v1
