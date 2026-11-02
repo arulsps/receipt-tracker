@@ -69,6 +69,13 @@ public class UploadReceiptFunction
                 return await CreateErrorResponseAsync(req, HttpStatusCode.BadRequest, "Invalid base64 string provided.");
             }
 
+            _logger.LogInformation("Receipt upload payload: ImageBytes length = {Length} bytes, FileName = {FileName}", imageBytes.Length, uploadRequest.FileName);
+
+            if (imageBytes.Length < 100)
+            {
+                return await CreateErrorResponseAsync(req, HttpStatusCode.BadRequest, $"Uploaded image is too small ({imageBytes.Length} bytes). Please verify the iOS shortcut image variable.");
+            }
+
             using var imageStream = new MemoryStream(imageBytes);
 
             // 1. Analyze receipt via Azure AI Document Intelligence
@@ -124,6 +131,7 @@ public class UploadReceiptFunction
                 TotalAmount = parsed.Total,
                 ItemCount = itemSummaries.Count,
                 Items = itemSummaries,
+                DiagnosticInfo = parsed.DiagnosticInfo,
                 Message = $"Processed receipt from {parsed.MerchantName} with {itemSummaries.Count} items totaling {(parsed.Total ?? 0):C2}."
             };
 

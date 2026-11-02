@@ -8,6 +8,8 @@ public class ParsedReceipt
     public decimal? Tax { get; set; }
     public decimal? Total { get; set; }
     public List<ParsedReceiptItem> Items { get; set; } = new();
+    public string? DiagnosticInfo { get; set; }
+    public string? RawTextSnippet { get; set; }
 }
 
 public class ParsedReceiptItem
@@ -18,4 +20,5 @@ public class ParsedReceiptItem
     public decimal TotalPrice { get; set; }
     public float? Confidence { get; set; }
 }
+
 

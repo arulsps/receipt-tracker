@@ -17,6 +17,7 @@ public class ReceiptUploadResponse
     public int ItemCount { get; set; }
     public List<ParsedReceiptItemSummary> Items { get; set; } = new();
     public string Message { get; set; } = string.Empty;
+    public string? DiagnosticInfo { get; set; }
 }
 
 public class ParsedReceiptItemSummary
