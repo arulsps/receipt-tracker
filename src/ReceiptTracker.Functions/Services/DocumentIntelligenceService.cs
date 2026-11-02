@@ -10,12 +10,15 @@ namespace ReceiptTracker.Functions.Services;
 
 public class DocumentIntelligenceService : IDocumentIntelligenceService
 {
-    private static readonly Regex PricePattern = new(@"([0-9]{1,3}(?:,[0-9]{3})*\.[0-9]{1,2}|[0-9]+\.[0-9]{1,2}|[0-9]+,[0-9]{2}|[0-9]+)", RegexOptions.Compiled);
+    private static readonly Regex PricePattern = new(@"([0-9]{1,4}(?:,[0-9]{3})*\.[0-9]{2}|[0-9]{1,4},[0-9]{2}|[0-9]+)", RegexOptions.Compiled);
+    private static readonly Regex PriceOnlyRegex = new(@"^[\$£€¥]?\s*([0-9]{1,4}(?:,[0-9]{3})*\.[0-9]{2}|[0-9]{1,4},[0-9]{2})(?:\s*[\*A-Za-z0-9%]{1,3})?$", RegexOptions.Compiled);
     private static readonly Regex DatePattern = new(@"\b(\d{1,4}[-/\.]\d{1,2}[-/\.]\d{1,4}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{2,4})\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex TotalKeywordRegex = new(@"(?i)\b(total|amount due|balance due|total to pay|grand total|balance)\b", RegexOptions.Compiled);
+    private static readonly Regex TotalKeywordRegex = new(@"(?i)\b(total|amount due|balance due|total to pay|grand total|balance|amount paid)\b", RegexOptions.Compiled);
     private static readonly Regex SummaryLineRegex = new(@"(?i)\b(subtotal|sub-total|total|tax|vat|balance due|amount due|cash|change|visa|mastercard|amex|debit|credit|card|thank you|welcome|customer copy|tip|gratuity|payment)\b", RegexOptions.Compiled);
-    private static readonly Regex HeaderLineRegex = new(@"(?i)\b(tel|phone|store #|reg #|register|cashier|order #|receipt #|invoice #|date|time|vat reg|table|server|receipt|tax invoice)\b", RegexOptions.Compiled);
-    private static readonly Regex ItemLineRegex = new(@"^(?:(\d+)\s*[xX*]?\s+)?(.+?)\s+[$£€¥]?\s*([0-9]+[.,][0-9]{2})$", RegexOptions.Compiled);
+    private static readonly Regex HeaderLineRegex = new(@"(?i)^(tel|phone|register|cashier|order #|receipt #|invoice #|date|time|vat reg|table|server)\b", RegexOptions.Compiled);
+    private static readonly Regex ItemLineRegex = new(@"^(?:(\d+)\s*[xX*]?\s+)?(.+?)\s+[\$£€¥]?\s*([0-9]{1,4}(?:,[0-9]{3})*\.[0-9]{2}|[0-9]{1,4},[0-9]{2})(?:\s*[\*A-Za-z0-9%]{1,3})?$", RegexOptions.Compiled);
+    private static readonly Regex TimePattern = new(@"^\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:AM|PM|am|pm))?$", RegexOptions.Compiled);
+    private static readonly Regex PhoneUiPattern = new(@"(?i)^(wifi|5g|4g|3g|lte|search|cancel|done|settings|back|new shortcut|<|>|\.\.\.)$", RegexOptions.Compiled);
 
     private readonly IConfiguration _configuration;
     private readonly ILogger<DocumentIntelligenceService> _logger;
@@ -196,11 +199,20 @@ public class DocumentIntelligenceService : IDocumentIntelligenceService
         }
 
         // STEP 3: Fallback from OCR Lines and Raw Content (if Merchant, Date, Total, or Items are missing)
-        ExtractFromOcrFallback(result, parsed);
+        var allLines = CollectAllLines(result);
+        ExtractFromOcrFallback(allLines, parsed);
 
-        parsed.DiagnosticInfo = extractedFromDocument
-            ? $"Analyzed via PrebuiltModel (Docs: {result.Documents?.Count ?? 0}, Items: {parsed.Items.Count})"
-            : $"Analyzed via OCR Fallback (Docs: {result.Documents?.Count ?? 0}, Pages: {result.Pages?.Count ?? 0}, Items: {parsed.Items.Count})";
+        var docKeys = (result.Documents != null && result.Documents.Count > 0)
+            ? string.Join(",", result.Documents[0].Fields.Keys)
+            : "None";
+
+        var preview = allLines.Count > 0
+            ? string.Join(" ; ", allLines.Take(10))
+            : (!string.IsNullOrWhiteSpace(result.Content)
+                ? (result.Content.Length > 150 ? result.Content.Substring(0, 150) : result.Content)
+                : "No text");
+
+        parsed.DiagnosticInfo = $"Mode: {(extractedFromDocument ? "Prebuilt" : "OCR")} | DocType: {(result.Documents?.Count > 0 ? result.Documents[0].DocumentType : "None")} | Fields: [{docKeys}] | Lines: {allLines.Count} | Sample: [{preview.Replace("\r", " ").Replace("\n", " ")}]";
 
         _logger.LogInformation("Receipt parse complete. Merchant: '{Merchant}', Date: {Date}, Total: {Total}, Items: {Count}. Diagnostics: {Diag}",
             parsed.MerchantName, parsed.TransactionDate, parsed.Total, parsed.Items.Count, parsed.DiagnosticInfo);
@@ -208,7 +220,7 @@ public class DocumentIntelligenceService : IDocumentIntelligenceService
         return parsed;
     }
 
-    private static void ExtractFromOcrFallback(AnalyzeResult result, ParsedReceipt parsed)
+    private static List<string> CollectAllLines(AnalyzeResult result)
     {
         var lines = new List<string>();
         if (result.Pages != null)
@@ -236,14 +248,20 @@ public class DocumentIntelligenceService : IDocumentIntelligenceService
                                   .ToList();
         }
 
+        return lines;
+    }
+
+    private static void ExtractFromOcrFallback(List<string> lines, ParsedReceipt parsed)
+    {
         // Merchant Name Fallback
         if (parsed.MerchantName == "Unknown Merchant" && lines.Count > 0)
         {
-            foreach (var line in lines.Take(5))
+            foreach (var line in lines.Take(8))
             {
-                if (IsLikelyMerchantName(line))
+                var cleaned = CleanMerchantName(line);
+                if (IsLikelyMerchantName(cleaned))
                 {
-                    parsed.MerchantName = CleanMerchantName(line);
+                    parsed.MerchantName = cleaned;
                     break;
                 }
             }
@@ -266,17 +284,19 @@ public class DocumentIntelligenceService : IDocumentIntelligenceService
         // Total Fallback
         if (!parsed.Total.HasValue)
         {
-            for (int i = lines.Count - 1; i >= 0; i--)
+            for (int i = 0; i < lines.Count; i++)
             {
                 var line = lines[i];
-                var totalMatch = TotalKeywordRegex.Match(line);
-                if (totalMatch.Success)
+                if (TotalKeywordRegex.IsMatch(line))
                 {
                     var price = ParseDecimalFromText(line);
+                    if (!price.HasValue && i + 1 < lines.Count)
+                    {
+                        price = ParseDecimalFromText(lines[i + 1]);
+                    }
                     if (price.HasValue && price.Value > 0)
                     {
                         parsed.Total = price.Value;
-                        break;
                     }
                 }
             }
@@ -285,24 +305,54 @@ public class DocumentIntelligenceService : IDocumentIntelligenceService
         // Items Fallback (if still 0 items)
         if (parsed.Items.Count == 0 && lines.Count > 0)
         {
-            foreach (var line in lines)
+            int i = 0;
+            while (i < lines.Count)
             {
+                var line = lines[i];
                 if (SummaryLineRegex.IsMatch(line) || HeaderLineRegex.IsMatch(line))
                 {
+                    i++;
                     continue;
                 }
 
+                // Try single-line item: [Quantity] [Description] [Price] [Optional VAT code]
                 var item = ParseLineItemText(line);
                 if (item != null && item.TotalPrice > 0 && !string.IsNullOrWhiteSpace(item.Description))
                 {
-                    // Avoid duplicating Total line as an item
                     if (parsed.Total.HasValue && item.TotalPrice == parsed.Total.Value && item.Description.Length < 3)
                     {
+                        i++;
                         continue;
                     }
 
                     parsed.Items.Add(item);
+                    i++;
+                    continue;
                 }
+
+                // Try two-line item: lines[i] is Description, lines[i+1] is Price
+                if (i + 1 < lines.Count && line.Length >= 2 && !PriceOnlyRegex.IsMatch(line) && !SummaryLineRegex.IsMatch(line))
+                {
+                    var nextLine = lines[i + 1];
+                    if (PriceOnlyRegex.IsMatch(nextLine) && !SummaryLineRegex.IsMatch(nextLine))
+                    {
+                        var twoLinePrice = ParseDecimalFromText(nextLine);
+                        if (twoLinePrice.HasValue && twoLinePrice.Value > 0)
+                        {
+                            parsed.Items.Add(new ParsedReceiptItem
+                            {
+                                Description = line,
+                                Quantity = 1.0m,
+                                TotalPrice = twoLinePrice.Value,
+                                UnitPrice = twoLinePrice.Value
+                            });
+                            i += 2;
+                            continue;
+                        }
+                    }
+                }
+
+                i++;
             }
         }
     }
@@ -314,7 +364,6 @@ public class DocumentIntelligenceService : IDocumentIntelligenceService
             var rows = table.Cells.GroupBy(c => c.RowIndex).OrderBy(g => g.Key).ToList();
             if (rows.Count <= 1) continue;
 
-            // Skip header row (row 0), process data rows
             foreach (var rowGroup in rows.Skip(1))
             {
                 var rowCells = rowGroup.OrderBy(c => c.ColumnIndex).ToList();
@@ -438,9 +487,6 @@ public class DocumentIntelligenceService : IDocumentIntelligenceService
         return null;
     }
 
-    private static readonly Regex TimePattern = new(@"^\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:AM|PM|am|pm))?$", RegexOptions.Compiled);
-    private static readonly Regex PhoneUiPattern = new(@"(?i)^(wifi|5g|4g|3g|lte|search|cancel|done|settings|back|new shortcut|<|>|\.\.\.)$", RegexOptions.Compiled);
-
     private static bool IsLikelyMerchantName(string line)
     {
         if (string.IsNullOrWhiteSpace(line)) return false;
@@ -449,7 +495,6 @@ public class DocumentIntelligenceService : IDocumentIntelligenceService
         if (TimePattern.IsMatch(trimmed)) return false;
         if (PhoneUiPattern.IsMatch(trimmed)) return false;
         if (HeaderLineRegex.IsMatch(trimmed)) return false;
-        if (SummaryLineRegex.IsMatch(trimmed)) return false;
         if (DatePattern.IsMatch(trimmed)) return false;
         if (Regex.IsMatch(trimmed, @"^[$£€¥]?\s*[0-9.,\s]+$")) return false;
         return true;
@@ -458,8 +503,9 @@ public class DocumentIntelligenceService : IDocumentIntelligenceService
     private static string CleanMerchantName(string name)
     {
         if (string.IsNullOrWhiteSpace(name)) return "Unknown Merchant";
-        var cleaned = name.Trim().Trim(',', '.', ':', ';', '-', '_', '#');
-        return string.IsNullOrWhiteSpace(cleaned) ? "Unknown Merchant" : cleaned;
+        var cleaned = Regex.Replace(name.Trim(), @"(?i)^(welcome to\s+|thank you for visiting\s+|thank you for shopping at\s+|customer receipt\s*[-:]?\s*|receipt\s*[-:]?\s*)", "");
+        cleaned = cleaned.Trim().Trim(',', '.', ':', ';', '-', '_', '#');
+        return cleaned.Length >= 2 ? cleaned : "Unknown Merchant";
     }
 
     private static ParsedReceiptItem? ParseLineItemText(string line)
