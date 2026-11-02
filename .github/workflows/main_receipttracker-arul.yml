@@ -11,7 +11,7 @@ on:
 
 env:
   AZURE_FUNCTIONAPP_PACKAGE_PATH: 'src/ReceiptTracker.Functions' # Path to project containing .csproj
-  DOTNET_VERSION: '7.0.x'
+  DOTNET_VERSION: '8.0.x'
 
 jobs:
   build-and-deploy:
