@@ -2,13 +2,21 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using ReceiptTracker.Functions.Services;
 
-var host = new HostBuilder()
-    .ConfigureFunctionsWorkerDefaults()
-    .ConfigureServices(services =>
-    {
-        services.AddHttpClient<IDataverseService, DataverseService>();
-        services.AddSingleton<IDocumentIntelligenceService, DocumentIntelligenceService>();
-    })
-    .Build();
+try
+{
+    var host = new HostBuilder()
+        .ConfigureFunctionsWorkerDefaults()
+        .ConfigureServices(services =>
+        {
+            services.AddHttpClient<IDataverseService, DataverseService>();
+            services.AddSingleton<IDocumentIntelligenceService, DocumentIntelligenceService>();
+        })
+        .Build();
 
-host.Run();
+    await host.RunAsync();
+}
+catch (Exception ex)
+{
+    Console.Error.WriteLine($"FATAL HOST STARTUP EXCEPTION: {ex}");
+    throw;
+}
