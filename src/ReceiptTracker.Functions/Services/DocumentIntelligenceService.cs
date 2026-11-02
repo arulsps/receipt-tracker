@@ -30,13 +30,13 @@ public class DocumentIntelligenceService : IDocumentIntelligenceService
         {
             if (_client != null) return _client;
 
-            var endpoint = _configuration["DocumentIntelligence:Endpoint"]
+            var endpoint = (_configuration["DocumentIntelligence:Endpoint"]
                 ?? _configuration["DocumentIntelligence__Endpoint"]
-                ?? _configuration["DocumentIntelligenceEndpoint"];
+                ?? _configuration["DocumentIntelligenceEndpoint"])?.Trim();
 
-            var apiKey = _configuration["DocumentIntelligence:ApiKey"]
+            var apiKey = (_configuration["DocumentIntelligence:ApiKey"]
                 ?? _configuration["DocumentIntelligence__ApiKey"]
-                ?? _configuration["DocumentIntelligenceApiKey"];
+                ?? _configuration["DocumentIntelligenceApiKey"])?.Trim();
 
             if (string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(apiKey))
             {
