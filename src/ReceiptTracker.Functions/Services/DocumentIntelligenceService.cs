@@ -8,26 +8,50 @@ namespace ReceiptTracker.Functions.Services;
 
 public class DocumentIntelligenceService : IDocumentIntelligenceService
 {
-    private readonly DocumentIntelligenceClient _client;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<DocumentIntelligenceService> _logger;
+    private DocumentIntelligenceClient? _client;
+    private readonly object _lock = new();
 
     public DocumentIntelligenceService(IConfiguration configuration, ILogger<DocumentIntelligenceService> logger)
     {
+        _configuration = configuration;
         _logger = logger;
-        var endpoint = configuration["DocumentIntelligence:Endpoint"]
-            ?? throw new InvalidOperationException("DocumentIntelligence:Endpoint is not configured.");
-        var apiKey = configuration["DocumentIntelligence:ApiKey"]
-            ?? throw new InvalidOperationException("DocumentIntelligence:ApiKey is not configured.");
+    }
 
-        _client = new DocumentIntelligenceClient(new Uri(endpoint), new AzureKeyCredential(apiKey));
+    private DocumentIntelligenceClient GetClient()
+    {
+        if (_client != null)
+        {
+            return _client;
+        }
+
+        lock (_lock)
+        {
+            if (_client != null) return _client;
+
+            var endpoint = _configuration["DocumentIntelligence:Endpoint"]
+                ?? _configuration["DocumentIntelligence__Endpoint"];
+            var apiKey = _configuration["DocumentIntelligence:ApiKey"]
+                ?? _configuration["DocumentIntelligence__ApiKey"];
+
+            if (string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(apiKey))
+            {
+                throw new InvalidOperationException("DocumentIntelligence endpoint or API key is not configured in environment variables.");
+            }
+
+            _client = new DocumentIntelligenceClient(new Uri(endpoint), new AzureKeyCredential(apiKey));
+            return _client;
+        }
     }
 
     public async Task<ParsedReceipt> AnalyzeReceiptAsync(Stream imageStream, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Sending receipt stream to Azure AI Document Intelligence (prebuilt-receipt)...");
 
+        var client = GetClient();
         var binaryData = await BinaryData.FromStreamAsync(imageStream, cancellationToken);
-        var operation = await _client.AnalyzeDocumentAsync(
+        var operation = await client.AnalyzeDocumentAsync(
             WaitUntil.Completed,
             "prebuilt-receipt",
             binaryData,

@@ -21,10 +21,17 @@ public class DataverseService : IDataverseService
         _httpClient = httpClient;
         _logger = logger;
 
-        _environmentUrl = (configuration["Dataverse:EnvironmentUrl"] ?? string.Empty).TrimEnd('/');
-        var tenantId = configuration["Dataverse:TenantId"];
-        var clientId = configuration["Dataverse:ClientId"];
-        var clientSecret = configuration["Dataverse:ClientSecret"];
+        var rawEnvUrl = configuration["Dataverse:EnvironmentUrl"] 
+            ?? configuration["Dataverse__EnvironmentUrl"] 
+            ?? string.Empty;
+        _environmentUrl = rawEnvUrl.TrimEnd('/');
+
+        var tenantId = configuration["Dataverse:TenantId"] 
+            ?? configuration["Dataverse__TenantId"];
+        var clientId = configuration["Dataverse:ClientId"] 
+            ?? configuration["Dataverse__ClientId"];
+        var clientSecret = configuration["Dataverse:ClientSecret"] 
+            ?? configuration["Dataverse__ClientSecret"];
 
         if (string.IsNullOrEmpty(_environmentUrl) || string.IsNullOrEmpty(tenantId) ||
             string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(clientSecret))
