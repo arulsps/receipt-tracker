@@ -15,7 +15,7 @@ env:
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     permissions:
       id-token: write # Required for requesting the JWT via federated credentials
       contents: read  # Required for actions/checkout
