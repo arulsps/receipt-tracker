@@ -197,3 +197,4 @@ With this app, whenever you snap a receipt on your iPhone:
    - Sign in with your developer account.
    - Open **Receipt Tracker**.
    - (Optional) In your **Scan Receipt** iOS Shortcut, add Action 7: **Open App** $\rightarrow$ select **Power Apps** so taking a photo immediately jumps into this review screen!
+

@@ -167,30 +167,20 @@ public class DataverseService : IDataverseService
             ["cr_StoreID@odata.bind"] = $"/cr_store1s({storeId})"
         };
 
-        // Note: Additional custom columns (cr_purchasedate, cr_totalamount, etc.) are optional and will be sent if present
-        if (purchaseDate.HasValue)
-        {
-            payload["cr_purchasedate"] = purchaseDate.Value.ToString("yyyy-MM-dd");
-        }
-        if (subtotal.HasValue)
-        {
-            payload["cr_subtotal"] = subtotal.Value;
-        }
-        if (tax.HasValue)
-        {
-            payload["cr_tax"] = tax.Value;
-        }
         if (totalAmount.HasValue)
         {
             payload["cr_totalamount"] = totalAmount.Value;
         }
+
+        var transactionDateTime = purchaseDate ?? DateTime.UtcNow;
+        payload["cr_purchasedatetime"] = transactionDateTime.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ");
 
         var request = await CreateAuthorizedRequestAsync(HttpMethod.Post, "cr_receipts", cancellationToken);
         request.Content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json");
 
         var response = await _httpClient.SendAsync(request, cancellationToken);
         
-        // If optional columns are not yet added to the Dataverse table, retry with base columns
+        // If schema requires fallback, retry with core fields
         if (!response.IsSuccessStatusCode)
         {
             var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -233,8 +223,19 @@ public class DataverseService : IDataverseService
         var payload = new JsonObject
         {
             ["cr_receiptitemname"] = rawItemName,
-            ["cr_Receipt@odata.bind"] = $"/cr_receipts({receiptId})"
+            ["cr_Receipt@odata.bind"] = $"/cr_receipts({receiptId})",
+            ["cr_totalprice"] = totalPrice,
+            ["cr_quantity"] = quantity
         };
+
+        if (unitPrice.HasValue)
+        {
+            payload["cr_unitprice"] = unitPrice.Value;
+        }
+        else if (quantity > 0)
+        {
+            payload["cr_unitprice"] = Math.Round(totalPrice / quantity, 2);
+        }
 
         if (productId.HasValue)
         {
@@ -245,7 +246,28 @@ public class DataverseService : IDataverseService
         request.Content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json");
 
         var response = await _httpClient.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogWarning("Receipt item creation with price returned {StatusCode}: {Error}. Retrying with core fields...", response.StatusCode, errorBody);
+
+            var fallbackPayload = new JsonObject
+            {
+                ["cr_receiptitemname"] = rawItemName,
+                ["cr_Receipt@odata.bind"] = $"/cr_receipts({receiptId})"
+            };
+
+            if (productId.HasValue)
+            {
+                fallbackPayload["cr_Product@odata.bind"] = $"/cr_products({productId.Value})";
+            }
+
+            var fallbackRequest = await CreateAuthorizedRequestAsync(HttpMethod.Post, "cr_receiptitems", cancellationToken);
+            fallbackRequest.Content = new StringContent(fallbackPayload.ToJsonString(), Encoding.UTF8, "application/json");
+            response = await _httpClient.SendAsync(fallbackRequest, cancellationToken);
+            response.EnsureSuccessStatusCode();
+        }
 
         var createdJson = JsonNode.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
         var createdId = createdJson?["cr_receiptitemid"]?.GetValue<string>()
